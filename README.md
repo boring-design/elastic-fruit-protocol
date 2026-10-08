@@ -42,6 +42,8 @@ Once a version is tagged, changes to the proto must be additive. Add new fields,
 
 A new tag is cut whenever the proto changes. Both the agent and the server pin a tag in their `go.mod`.
 
+v0.2.0 adds the `isolation` field on `EnrollRequest` and `HeartbeatRequest`, the `runtime` field on `StartRunner` and the `runtimes` list on `BackendCapability`, so the server can schedule pool runners on hosts that offer gVisor or VM isolation.
+
 ## License
 
 Apache-2.0, see `LICENSE`.

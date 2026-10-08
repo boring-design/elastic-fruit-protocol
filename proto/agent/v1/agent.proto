@@ -41,6 +41,8 @@ message BackendCapability {
   string backend = 1;
   // Version string reported by the backend CLI.
   string version = 2;
+  // Docker runtimes registered on the host, for example "runc", "runsc".
+  repeated string runtimes = 3;
 }
 
 message EnrollRequest {
@@ -54,6 +56,9 @@ message EnrollRequest {
   repeated BackendCapability available_backends = 6;
   // Maximum number of runners this host can run at the same time.
   int32 max_runners = 7;
+  // Isolation the host offers for runners: "container", "sandboxed_container"
+  // (Docker with the gVisor runsc runtime) or "vm".
+  string isolation = 8;
 }
 
 message EnrollResponse {
@@ -110,6 +115,9 @@ message HeartbeatRequest {
   // Every runner the agent currently tracks.
   repeated RunnerStatus runners = 2;
   int32 max_runners = 3;
+  // Isolation is repeated here so a host that gains gVisor is picked up after
+  // an agent restart. Same values as EnrollRequest.isolation.
+  string isolation = 4;
 }
 
 message HeartbeatResponse {}
@@ -149,6 +157,9 @@ message StartRunner {
   string platform = 5;
   // Encoded just in time runner config from GitHub.
   string jit_config = 6;
+  // Container runtime the server wants, for example "runsc". Empty means the
+  // backend default.
+  string runtime = 7;
 }
 
 message CleanupRunner {

@@ -1,8 +1,10 @@
 version: v2
 plugins:
-  - remote: buf.build/protocolbuffers/go
+  # Pinned so the committed code matches what CI generates. The unpinned
+  # connect plugin now emits connectrpc.com/connect/v2 and go.mod stays on v1.
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: gen
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.19.1
     out: gen
     opt: paths=source_relative

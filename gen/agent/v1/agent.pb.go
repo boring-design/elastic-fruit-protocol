@@ -199,7 +199,9 @@ type BackendCapability struct {
 	// a proto change.
 	Backend string `protobuf:"bytes,1,opt,name=backend,proto3" json:"backend,omitempty"`
 	// Version string reported by the backend CLI.
-	Version       string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Docker runtimes registered on the host, for example "runc", "runsc".
+	Runtimes      []string `protobuf:"bytes,3,rep,name=runtimes,proto3" json:"runtimes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -248,6 +250,13 @@ func (x *BackendCapability) GetVersion() string {
 	return ""
 }
 
+func (x *BackendCapability) GetRuntimes() []string {
+	if x != nil {
+		return x.Runtimes
+	}
+	return nil
+}
+
 type EnrollRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// One time token issued by the cloud for this enrollment.
@@ -259,7 +268,10 @@ type EnrollRequest struct {
 	// Backends that are installed and working on this host.
 	AvailableBackends []*BackendCapability `protobuf:"bytes,6,rep,name=available_backends,json=availableBackends,proto3" json:"available_backends,omitempty"`
 	// Maximum number of runners this host can run at the same time.
-	MaxRunners    int32 `protobuf:"varint,7,opt,name=max_runners,json=maxRunners,proto3" json:"max_runners,omitempty"`
+	MaxRunners int32 `protobuf:"varint,7,opt,name=max_runners,json=maxRunners,proto3" json:"max_runners,omitempty"`
+	// Isolation the host offers for runners: "container", "sandboxed_container"
+	// (Docker with the gVisor runsc runtime) or "vm".
+	Isolation     string `protobuf:"bytes,8,opt,name=isolation,proto3" json:"isolation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -341,6 +353,13 @@ func (x *EnrollRequest) GetMaxRunners() int32 {
 		return x.MaxRunners
 	}
 	return 0
+}
+
+func (x *EnrollRequest) GetIsolation() string {
+	if x != nil {
+		return x.Isolation
+	}
+	return ""
 }
 
 type EnrollResponse struct {
@@ -607,8 +626,11 @@ type HeartbeatRequest struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	HostVitals *HostVitals            `protobuf:"bytes,1,opt,name=host_vitals,json=hostVitals,proto3" json:"host_vitals,omitempty"`
 	// Every runner the agent currently tracks.
-	Runners       []*RunnerStatus `protobuf:"bytes,2,rep,name=runners,proto3" json:"runners,omitempty"`
-	MaxRunners    int32           `protobuf:"varint,3,opt,name=max_runners,json=maxRunners,proto3" json:"max_runners,omitempty"`
+	Runners    []*RunnerStatus `protobuf:"bytes,2,rep,name=runners,proto3" json:"runners,omitempty"`
+	MaxRunners int32           `protobuf:"varint,3,opt,name=max_runners,json=maxRunners,proto3" json:"max_runners,omitempty"`
+	// Isolation is repeated here so a host that gains gVisor is picked up after
+	// an agent restart. Same values as EnrollRequest.isolation.
+	Isolation     string `protobuf:"bytes,4,opt,name=isolation,proto3" json:"isolation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -662,6 +684,13 @@ func (x *HeartbeatRequest) GetMaxRunners() int32 {
 		return x.MaxRunners
 	}
 	return 0
+}
+
+func (x *HeartbeatRequest) GetIsolation() string {
+	if x != nil {
+		return x.Isolation
+	}
+	return ""
 }
 
 type HeartbeatResponse struct {
@@ -909,7 +938,10 @@ type StartRunner struct {
 	// Target platform, for example "linux/arm64".
 	Platform string `protobuf:"bytes,5,opt,name=platform,proto3" json:"platform,omitempty"`
 	// Encoded just in time runner config from GitHub.
-	JitConfig     string `protobuf:"bytes,6,opt,name=jit_config,json=jitConfig,proto3" json:"jit_config,omitempty"`
+	JitConfig string `protobuf:"bytes,6,opt,name=jit_config,json=jitConfig,proto3" json:"jit_config,omitempty"`
+	// Container runtime the server wants, for example "runsc". Empty means the
+	// backend default.
+	Runtime       string `protobuf:"bytes,7,opt,name=runtime,proto3" json:"runtime,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -982,6 +1014,13 @@ func (x *StartRunner) GetPlatform() string {
 func (x *StartRunner) GetJitConfig() string {
 	if x != nil {
 		return x.JitConfig
+	}
+	return ""
+}
+
+func (x *StartRunner) GetRuntime() string {
+	if x != nil {
+		return x.Runtime
 	}
 	return ""
 }
@@ -1897,10 +1936,11 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"G\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"c\n" +
 	"\x11BackendCapability\x12\x18\n" +
 	"\abackend\x18\x01 \x01(\tR\abackend\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\"\x8c\x02\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
+	"\bruntimes\x18\x03 \x03(\tR\bruntimes\"\xaa\x02\n" +
 	"\rEnrollRequest\x12)\n" +
 	"\x10enrollment_token\x18\x01 \x01(\tR\x0fenrollmentToken\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x0e\n" +
@@ -1909,7 +1949,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\ragent_version\x18\x05 \x01(\tR\fagentVersion\x12J\n" +
 	"\x12available_backends\x18\x06 \x03(\v2\x1b.agent.v1.BackendCapabilityR\x11availableBackends\x12\x1f\n" +
 	"\vmax_runners\x18\a \x01(\x05R\n" +
-	"maxRunners\"u\n" +
+	"maxRunners\x12\x1c\n" +
+	"\tisolation\x18\b \x01(\tR\tisolation\"u\n" +
 	"\x0eEnrollResponse\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12)\n" +
 	"\x10agent_credential\x18\x02 \x01(\tR\x0fagentCredential\x12\x1d\n" +
@@ -1933,13 +1974,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fRunnerStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
 	"\x05state\x18\x02 \x01(\x0e2\x15.agent.v1.RunnerStateR\x05state\x120\n" +
-	"\x05since\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\x9c\x01\n" +
+	"\x05since\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\xba\x01\n" +
 	"\x10HeartbeatRequest\x125\n" +
 	"\vhost_vitals\x18\x01 \x01(\v2\x14.agent.v1.HostVitalsR\n" +
 	"hostVitals\x120\n" +
 	"\arunners\x18\x02 \x03(\v2\x16.agent.v1.RunnerStatusR\arunners\x12\x1f\n" +
 	"\vmax_runners\x18\x03 \x01(\x05R\n" +
-	"maxRunners\"\x13\n" +
+	"maxRunners\x12\x1c\n" +
+	"\tisolation\x18\x04 \x01(\tR\tisolation\"\x13\n" +
 	"\x11HeartbeatResponse\"\x16\n" +
 	"\x14WatchCommandsRequest\"\xaf\x03\n" +
 	"\fAgentCommand\x12\x1d\n" +
@@ -1951,7 +1993,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fjob_assigned\x18\x05 \x01(\v2\x15.agent.v1.JobAssignedH\x00R\vjobAssigned\x12:\n" +
 	"\fjob_finished\x18\x06 \x01(\v2\x15.agent.v1.JobFinishedH\x00R\vjobFinished\x123\n" +
 	"\tkeepalive\x18\a \x01(\v2\x13.agent.v1.KeepaliveH\x00R\tkeepaliveB\t\n" +
-	"\acommand\"\xc1\x01\n" +
+	"\acommand\"\xdb\x01\n" +
 	"\vStartRunner\x12\x1f\n" +
 	"\vrunner_name\x18\x01 \x01(\tR\n" +
 	"runnerName\x12&\n" +
@@ -1960,7 +2002,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05image\x18\x04 \x01(\tR\x05image\x12\x1a\n" +
 	"\bplatform\x18\x05 \x01(\tR\bplatform\x12\x1d\n" +
 	"\n" +
-	"jit_config\x18\x06 \x01(\tR\tjitConfig\"0\n" +
+	"jit_config\x18\x06 \x01(\tR\tjitConfig\x12\x18\n" +
+	"\aruntime\x18\a \x01(\tR\aruntime\"0\n" +
 	"\rCleanupRunner\x12\x1f\n" +
 	"\vrunner_name\x18\x01 \x01(\tR\n" +
 	"runnerName\":\n" +
