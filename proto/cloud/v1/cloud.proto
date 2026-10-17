@@ -1,0 +1,733 @@
+syntax = "proto3";
+
+package cloud.v1;
+
+option go_package = "github.com/boring-design/elastic-fruit-protocol/gen/cloud/v1;cloudv1";
+
+// CloudService is the public API of Elastic Fruit Cloud, used by the
+// dashboard, the efc CLI and MCP.
+service CloudService {
+  // GetServiceInfo returns the version and public URL of this server.
+  // It does not need a session.
+  rpc GetServiceInfo(GetServiceInfoRequest) returns (GetServiceInfoResponse);
+
+  // GetCurrentUser returns the signed in user and the tenants they belong to.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
+
+  // ListInstallations returns the GitHub accounts the App is installed on for one tenant.
+  rpc ListInstallations(ListInstallationsRequest) returns (ListInstallationsResponse);
+
+  // GetInstallURL returns the GitHub page where the user installs the App for one tenant.
+  rpc GetInstallURL(GetInstallURLRequest) returns (GetInstallURLResponse);
+
+  // LinkPendingInstallation links an installation the setup callback could
+  // not link yet because the webhook that names its installer had not
+  // arrived. Only the GitHub user who installed it can link it.
+  rpc LinkPendingInstallation(LinkPendingInstallationRequest) returns (LinkPendingInstallationResponse);
+
+  // CreateEnrollmentToken mints a one time token an agent uses to join one tenant.
+  rpc CreateEnrollmentToken(CreateEnrollmentTokenRequest) returns (CreateEnrollmentTokenResponse);
+
+  // ListAgents returns the agents of one tenant with their live status.
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+  // DeleteAgent removes an agent and closes its command stream.
+  rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse);
+
+  // UpdateMachineSettings changes the runner image of the tenant's own machines, owners only.
+  rpc UpdateMachineSettings(UpdateMachineSettingsRequest) returns (UpdateMachineSettingsResponse);
+
+  // ListRepositories returns the enabled repositories of one tenant. Name,
+  // visibility and archived state of each are read live from GitHub by
+  // repository id with a 30 second cache. A repository GitHub does not
+  // return gets the problem status.
+  rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse);
+
+  // ListInstallationRepositories returns every repository the GitHub App
+  // installations of one tenant can see, read live from GitHub without a
+  // cache. The dashboard calls it only when a user opens the repository
+  // picker. Suspended installations are skipped.
+  rpc ListInstallationRepositories(ListInstallationRepositoriesRequest) returns (ListInstallationRepositoriesResponse);
+
+  // EnableRepository lets jobs of the repository with runs-on: elastic-fruit
+  // run on Elastic Fruit, owners only. The repository must be readable
+  // through the given installation of the tenant.
+  rpc EnableRepository(EnableRepositoryRequest) returns (EnableRepositoryResponse);
+
+  // DisableRepository stops running jobs of the repository, owners only. Job history stays.
+  rpc DisableRepository(DisableRepositoryRequest) returns (DisableRepositoryResponse);
+
+  // ListJobs returns one page of job history of one tenant, newest first.
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+
+  // GetJob returns one job with its resource samples.
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+
+  // GetJobLogs returns the end of the GitHub log of one job. The server finds
+  // the GitHub workflow job through the GitHub App installation of the
+  // tenant, which needs the Actions read permission. When the log cannot be
+  // read, status says why and the response still links the run on GitHub.
+  rpc GetJobLogs(GetJobLogsRequest) returns (GetJobLogsResponse);
+
+  // GetOverview returns the counts shown on the overview page.
+  rpc GetOverview(GetOverviewRequest) returns (GetOverviewResponse);
+
+  // ListMembers returns the members of one tenant and its open invites.
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+
+  // InviteMember creates an invite for a GitHub login, owners only. The
+  // invite is claimed when that login signs in, or through the returned link.
+  rpc InviteMember(InviteMemberRequest) returns (InviteMemberResponse);
+
+  // RevokeInvite deletes an open invite, owners only.
+  rpc RevokeInvite(RevokeInviteRequest) returns (RevokeInviteResponse);
+
+  // RemoveMember removes one member from a tenant, owners only. The last owner cannot be removed.
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  // LeaveTenant removes the signed in user from a tenant. The last owner cannot leave.
+  rpc LeaveTenant(LeaveTenantRequest) returns (LeaveTenantResponse);
+
+  // AcceptInvite joins the signed in user to the tenant named by an invite link token.
+  rpc AcceptInvite(AcceptInviteRequest) returns (AcceptInviteResponse);
+
+  // DeleteTenant removes a tenant that has no installations, agents or enabled repositories left, owners only.
+  rpc DeleteTenant(DeleteTenantRequest) returns (DeleteTenantResponse);
+
+  // GetUsageReport returns the stored daily usage of one tenant per
+  // repository for the last days, with totals.
+  rpc GetUsageReport(GetUsageReportRequest) returns (GetUsageReportResponse);
+
+  // ExportUsageCSV returns the daily usage rows of one tenant between two days as CSV text.
+  rpc ExportUsageCSV(ExportUsageCSVRequest) returns (ExportUsageCSVResponse);
+
+  // CreateAPIToken creates an API token for one tenant, owners with a browser
+  // session only. The token is returned once, the server only stores its hash.
+  rpc CreateAPIToken(CreateAPITokenRequest) returns (CreateAPITokenResponse);
+
+  // ListAPITokens returns the API tokens of one tenant, revoked and expired
+  // ones included, owners with a browser session only.
+  rpc ListAPITokens(ListAPITokensRequest) returns (ListAPITokensResponse);
+
+  // RevokeAPIToken stops an API token from working, owners with a browser session only.
+  rpc RevokeAPIToken(RevokeAPITokenRequest) returns (RevokeAPITokenResponse);
+}
+
+message GetServiceInfoRequest {}
+
+message GetServiceInfoResponse {
+  string version = 1;
+  string public_url = 2;
+  // instance_id names the server process that answered. Several run behind one URL.
+  string instance_id = 3;
+}
+
+message GetCurrentUserRequest {}
+
+message GetCurrentUserResponse {
+  User user = 1;
+  repeated Tenant tenants = 2;
+  // csrf_token must be sent in the X-CSRF-Token header on state changing requests.
+  string csrf_token = 3;
+}
+
+message User {
+  // Reserved, do not reuse.
+  reserved 2;
+  string id = 1;
+  string login = 3;
+  string avatar_url = 4;
+  string email = 5;
+  string display_name = 6;
+}
+
+message Tenant {
+  string id = 1;
+  string name = 2;
+  // role is the membership role of the current user in this tenant.
+  string role = 3;
+  // is_platform is true for the one tenant that owns the shared pool hosts.
+  bool is_platform = 4;
+}
+
+message ListInstallationsRequest {
+  string tenant_id = 1;
+}
+
+message ListInstallationsResponse {
+  repeated Installation installations = 1;
+}
+
+message GetInstallURLRequest {
+  string tenant_id = 1;
+}
+
+message GetInstallURLResponse {
+  string url = 1;
+}
+
+message LinkPendingInstallationRequest {
+  string tenant_id = 1;
+  int64 installation_id = 2;
+}
+
+message LinkPendingInstallationResponse {
+  // linked is false while the installer is not known yet, ask again later.
+  bool linked = 1;
+  // error is the short setup error code when the installation cannot be
+  // linked, for example installer_mismatch. Empty when linked or pending.
+  string error = 2;
+}
+
+message Installation {
+  int64 installation_id = 1;
+  string tenant_id = 2;
+  // account_login is the GitHub org or user the App is installed on.
+  string account_login = 3;
+  // account_type is "Organization" or "User".
+  string account_type = 4;
+  // repository_selection is "all" or "selected".
+  string repository_selection = 5;
+  bool suspended = 6;
+  // installed_at is when this server first saw the installation, RFC 3339.
+  string installed_at = 7;
+}
+
+message CreateEnrollmentTokenRequest {
+  string tenant_id = 1;
+}
+
+message CreateEnrollmentTokenResponse {
+  // token is shown once. The server only stores its hash.
+  string token = 1;
+  // expires_at is RFC 3339.
+  string expires_at = 2;
+  // enroll_command is the full command to run on the agent host.
+  string enroll_command = 3;
+}
+
+message ListAgentsRequest {
+  string tenant_id = 1;
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+  // runner_image is the image runners on the tenant's own machines start
+  // from. Empty means the Elastic Fruit pool image.
+  string runner_image = 2;
+}
+
+message UpdateMachineSettingsRequest {
+  string tenant_id = 1;
+  // runner_image is the image runners on the tenant's own machines start
+  // from. Empty means the Elastic Fruit pool image. Pool runners always use
+  // the pool image.
+  string runner_image = 2;
+}
+
+message UpdateMachineSettingsResponse {}
+
+message DeleteAgentRequest {
+  string tenant_id = 1;
+  string agent_id = 2;
+}
+
+message DeleteAgentResponse {}
+
+message Agent {
+  string id = 1;
+  string name = 2;
+  string hostname = 3;
+  string os = 4;
+  string arch = 5;
+  string agent_version = 6;
+  repeated string backends = 7;
+  int32 max_runners = 8;
+  // online is true while the agent keeps its command stream open.
+  bool online = 9;
+  // stale is true when the last heartbeat is older than the heartbeat timeout.
+  bool stale = 10;
+  // last_heartbeat_at is RFC 3339, empty when the agent never sent a heartbeat.
+  string last_heartbeat_at = 11;
+  repeated AgentRunner runners = 12;
+  // latest_vitals is unset when the agent never sent a heartbeat.
+  AgentVitals latest_vitals = 13;
+  // isolation is what the host offers its runners: "container" (plain
+  // container on a shared host), "sandboxed_container" (container under
+  // gVisor on a shared host) or "vm" (a virtual machine per runner).
+  string isolation = 14;
+}
+
+message AgentRunner {
+  string name = 1;
+  // state is one of preparing, idle, busy, cleaning.
+  string state = 2;
+  // since is RFC 3339.
+  string since = 3;
+}
+
+message AgentVitals {
+  // recorded_at is RFC 3339.
+  string recorded_at = 1;
+  float cpu_usage_percent = 2;
+  float memory_usage_percent = 3;
+  float disk_usage_percent = 4;
+  float temperature_celsius = 5;
+  double load_one = 6;
+  int64 memory_used_bytes = 7;
+  int64 memory_available_bytes = 8;
+  int64 swap_used_bytes = 9;
+  int64 disk_used_bytes = 10;
+  int64 disk_available_bytes = 11;
+  int64 disk_read_bytes = 12;
+  int64 disk_write_bytes = 13;
+}
+
+message ListRepositoriesRequest {
+  // Reserved, do not reuse.
+  reserved 2, 3;
+  string tenant_id = 1;
+}
+
+message ListRepositoriesResponse {
+  // Reserved, do not reuse.
+  reserved 2, 3;
+  // repositories are sorted by account and full name.
+  repeated Repository repositories = 1;
+}
+
+message ListInstallationRepositoriesRequest {
+  string tenant_id = 1;
+}
+
+message ListInstallationRepositoriesResponse {
+  // repositories are sorted by account and full name.
+  repeated InstallationRepository repositories = 1;
+}
+
+// InstallationRepository is one repository a GitHub App installation of the
+// tenant can see, as the repository picker shows it.
+message InstallationRepository {
+  int64 id = 1;
+  string full_name = 2;
+  bool private = 3;
+  bool archived = 4;
+  int64 installation_id = 5;
+  // account_login is the GitHub account the App is installed on.
+  string account_login = 6;
+  // enabled is true when the repository is enabled in this tenant.
+  bool enabled = 7;
+}
+
+// Repository is one enabled repository of the tenant.
+message Repository {
+  // Reserved, do not reuse.
+  reserved 7;
+  // id is the GitHub repository id, it stays the same across renames.
+  int64 id = 1;
+  // full_name is owner/name as GitHub reports it now. For a repository
+  // GitHub does not return, it is the name of its newest job or
+  // "repository <id>".
+  string full_name = 2;
+  bool private = 3;
+  bool archived = 4;
+  int64 installation_id = 5;
+  // account_login is the GitHub account the App is installed on.
+  string account_login = 6;
+  // status is one of paused, problem, setting_up, pool_minutes_used_up or
+  // ready.
+  string status = 8;
+  // problem explains the problem status in words a user can act on.
+  string problem = 9;
+  // last_job is unset when the repository never ran a job.
+  RepositoryJob last_job = 10;
+  int32 jobs_last_7_days = 11;
+}
+
+message RepositoryJob {
+  string id = 1;
+  // result is succeeded, failed, canceled or lost, empty while the job runs.
+  string result = 2;
+  // started_at and finished_at are RFC 3339, finished_at is empty while the job runs.
+  string started_at = 3;
+  string finished_at = 4;
+}
+
+message EnableRepositoryRequest {
+  string tenant_id = 1;
+  int64 repository_id = 2;
+  // installation_id is the GitHub App installation of the tenant the
+  // repository picker found the repository through.
+  int64 installation_id = 3;
+}
+
+message EnableRepositoryResponse {
+  Repository repository = 1;
+}
+
+message DisableRepositoryRequest {
+  string tenant_id = 1;
+  int64 repository_id = 2;
+}
+
+message DisableRepositoryResponse {}
+
+message ListJobsRequest {
+  // Reserved, do not reuse.
+  reserved 2;
+  string tenant_id = 1;
+  // page starts at 1. Each page holds 50 jobs.
+  int32 page = 3;
+  // repository_id limits the list to one repository when it is not 0.
+  int64 repository_id = 4;
+}
+
+message ListJobsResponse {
+  repeated Job jobs = 1;
+  bool has_more = 2;
+}
+
+message GetJobRequest {
+  string tenant_id = 1;
+  string job_id = 2;
+}
+
+message GetJobResponse {
+  Job job = 1;
+  repeated JobResourceSample samples = 2;
+}
+
+message GetJobLogsRequest {
+  string tenant_id = 1;
+  string job_id = 2;
+  // max_bytes is how much of the end of the log to return. 0 means 32768,
+  // the largest value is 1048576.
+  int32 max_bytes = 3;
+}
+
+message GetJobLogsResponse {
+  // status is one of:
+  // ready: log holds the end of the job log.
+  // log_not_ready: the job is still running, or GitHub has no log for it
+  // any more because it expired or was deleted.
+  // permission_not_approved: the GitHub App installation has not approved
+  // the Actions read permission yet. An owner of the GitHub account
+  // approves it on GitHub.
+  // repository_not_accessible: no GitHub App installation of the tenant can
+  // read the repository or the run.
+  // job_not_located: the GitHub workflow job of this job cannot be found
+  // without doubt, so no log is returned.
+  string status = 1;
+  // message explains the status in words a user can act on.
+  string message = 2;
+  // log is the end of the job log, only set when status is ready.
+  string log = 3;
+  // truncated is true when log holds only the end of a longer log.
+  bool truncated = 4;
+  // log_size_bytes is the size of the whole log on GitHub, 0 unless status is ready.
+  int64 log_size_bytes = 5;
+  // github_workflow_job_id is the GitHub REST id of the workflow job, 0 when it was not found.
+  int64 github_workflow_job_id = 6;
+  // github_run_url is the run page on GitHub, empty when the run is unknown.
+  string github_run_url = 7;
+  // github_job_url is the job page on GitHub, empty when the job was not found.
+  string github_job_url = 8;
+  // log_command reads the log with the GitHub CLI, empty when the run is unknown.
+  string log_command = 9;
+}
+
+message Job {
+  // Reserved, do not reuse.
+  reserved 2, 3;
+  string id = 1;
+  // agent_id is empty for jobs on the pool and when the runner was not placed
+  // by this server. agent_name is "Elastic Fruit pool" for jobs on the pool.
+  string agent_id = 4;
+  string agent_name = 5;
+  string runner_name = 6;
+  // github_job_id is the job id from the GitHub scale set message.
+  string github_job_id = 7;
+  int64 workflow_run_id = 8;
+  string workflow_ref = 9;
+  string display_name = 10;
+  string owner = 11;
+  string repository = 12;
+  string event_name = 13;
+  repeated string labels = 14;
+  // Timestamps are RFC 3339, empty when unknown.
+  string queued_at = 15;
+  string scale_set_assigned_at = 16;
+  string runner_assigned_at = 17;
+  string started_at = 18;
+  string finished_at = 19;
+  // result is succeeded, failed, canceled or lost, empty while the job runs.
+  string result = 20;
+  // runner_state is the live state of the runner of this job while the
+  // server still tracks it, empty once the runner is gone. Only GetJob fills it.
+  string runner_state = 21;
+  // runner_end_reason says why the runner of this job was ended, for example
+  // "job completed", "start timeout" or "agent went stale". Empty while the
+  // runner is up. Only GetJob fills it.
+  string runner_end_reason = 22;
+  int64 repository_id = 23;
+  // repository_name is owner/name.
+  string repository_name = 24;
+}
+
+message JobResourceSample {
+  // recorded_at is RFC 3339.
+  string recorded_at = 1;
+  string source = 2;
+  // accuracy is exact or estimate.
+  string accuracy = 3;
+  double cpu_percent = 4;
+  int64 memory_used_bytes = 5;
+  int64 memory_available_bytes = 6;
+  int64 disk_used_bytes = 7;
+  int64 disk_available_bytes = 8;
+  int64 disk_read_bytes = 9;
+  int64 disk_write_bytes = 10;
+  int64 network_receive_bytes = 11;
+  int64 network_send_bytes = 12;
+  double load_one = 13;
+  double temperature_celsius = 14;
+}
+
+message GetOverviewRequest {
+  string tenant_id = 1;
+}
+
+message GetOverviewResponse {
+  // Reserved, do not reuse.
+  reserved 3, 4, 6, 7;
+  int32 agents_total = 1;
+  int32 agents_online = 2;
+  int32 jobs_running = 5;
+  // quota holds the free tier limits of the tenant and how much of each is in use.
+  TenantQuota quota = 8;
+  // installations_total counts the GitHub accounts the App is installed on.
+  int32 installations_total = 9;
+  int32 repositories_enabled = 10;
+  // jobs_last_7_days counts jobs that started in the last 7 days.
+  int32 jobs_last_7_days = 11;
+  // has_jobs is true once the tenant ran its first job.
+  bool has_jobs = 12;
+}
+
+// TenantQuota is the free tier limits of one tenant next to the current use.
+message TenantQuota {
+  // Reserved, do not reuse.
+  reserved 3, 4;
+  int32 max_agents = 1;
+  int32 agents_used = 2;
+  // max_concurrent_runners caps runners in preparing, idle or busy over all repositories of the tenant.
+  int32 max_concurrent_runners = 5;
+  int32 runners_allocated = 6;
+  // pool_minutes_monthly is the shared pool allowance per calendar month in
+  // UTC, 0 means the tenant may not use the pool.
+  int32 pool_minutes_monthly = 7;
+  // pool_minutes_used is the whole minutes runners of the tenant spent on the
+  // pool since the 1st of this month at 00:00 UTC, read from live sessions.
+  int32 pool_minutes_used = 8;
+  // max_pool_runners caps runners of the tenant on the pool at the same time.
+  int32 max_pool_runners = 9;
+  // pool_runners_allocated is how many runners of the tenant are preparing,
+  // idle or busy on the pool right now.
+  int32 pool_runners_allocated = 10;
+  // max_repositories caps how many repositories the tenant may enable.
+  int32 max_repositories = 11;
+  int32 repositories_enabled = 12;
+}
+
+message ListMembersRequest {
+  string tenant_id = 1;
+}
+
+message ListMembersResponse {
+  repeated TenantMember members = 1;
+  // invites are the open invites of the tenant. Expired and accepted invites are not listed.
+  repeated TenantInvite invites = 2;
+}
+
+message TenantMember {
+  string user_id = 1;
+  string login = 2;
+  string display_name = 3;
+  string avatar_url = 4;
+  // role is owner or member.
+  string role = 5;
+}
+
+message TenantInvite {
+  string id = 1;
+  // github_login is lower cased. Empty means the invite can only be accepted through its link.
+  string github_login = 2;
+  string role = 3;
+  string invited_by_login = 4;
+  // expires_at and created_at are RFC 3339.
+  string expires_at = 5;
+  string created_at = 6;
+}
+
+message InviteMemberRequest {
+  string tenant_id = 1;
+  // github_login may be empty for an invite that is only accepted through its link.
+  string github_login = 2;
+  // role is owner or member.
+  string role = 3;
+}
+
+message InviteMemberResponse {
+  TenantInvite invite = 1;
+  // invite_url is shown once. The server only stores the hash of its token.
+  string invite_url = 2;
+}
+
+message RevokeInviteRequest {
+  string tenant_id = 1;
+  string invite_id = 2;
+}
+
+message RevokeInviteResponse {}
+
+message RemoveMemberRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message RemoveMemberResponse {}
+
+message LeaveTenantRequest {
+  string tenant_id = 1;
+}
+
+message LeaveTenantResponse {}
+
+message AcceptInviteRequest {
+  // token is the last part of the invite link.
+  string token = 1;
+}
+
+message AcceptInviteResponse {
+  // tenant is the tenant the user joined, with their role in it.
+  Tenant tenant = 1;
+}
+
+message DeleteTenantRequest {
+  string tenant_id = 1;
+}
+
+message DeleteTenantResponse {}
+
+message GetUsageReportRequest {
+  string tenant_id = 1;
+  // days counts back from today, today included, 1 to 366. 0 means 30.
+  int32 days = 2;
+}
+
+// UsageRow is the usage of one repository on one UTC day. Usage is written
+// every five minutes, so today is a few minutes behind.
+message UsageRow {
+  // Reserved, do not reuse.
+  reserved 2, 3;
+  // day is the UTC day as 2026-01-31.
+  string day = 1;
+  // job_count counts jobs on the day they started.
+  int32 job_count = 4;
+  int32 succeeded_count = 5;
+  int32 failed_count = 6;
+  // other_count is jobs that were canceled, lost or still running.
+  int32 other_count = 7;
+  // job_seconds is the time jobs ran on this day, a job over midnight is split.
+  int64 job_seconds = 8;
+  // runner_seconds is the time runners were up on this day, from the agent
+  // reporting the runner started to the runner being removed.
+  int64 runner_seconds = 9;
+  // pool_runner_seconds is the part of runner_seconds spent on the shared
+  // pool. Own runner time is runner_seconds minus this.
+  int64 pool_runner_seconds = 10;
+  int64 repository_id = 11;
+  // repository_name is owner/name when the row was written. It stays after
+  // the repository is disabled or removed.
+  string repository_name = 12;
+}
+
+message UsageTotals {
+  int32 job_count = 1;
+  int32 succeeded_count = 2;
+  int32 failed_count = 3;
+  int32 other_count = 4;
+  int64 job_seconds = 5;
+  int64 runner_seconds = 6;
+  // pool_runner_seconds is the part of runner_seconds spent on the shared pool.
+  int64 pool_runner_seconds = 7;
+}
+
+message GetUsageReportResponse {
+  // from and to are the first and last day of the report as 2026-01-31, both included.
+  string from = 1;
+  string to = 2;
+  repeated UsageRow rows = 3;
+  // totals is the sum of rows.
+  UsageTotals totals = 4;
+}
+
+message ExportUsageCSVRequest {
+  string tenant_id = 1;
+  // from and to are days as 2026-01-31, both included, at most 366 days apart.
+  string from = 2;
+  string to = 3;
+}
+
+message ExportUsageCSVResponse {
+  // csv has a header line and one line per day and repository.
+  string csv = 1;
+  // file_name is a suggested name for the download.
+  string file_name = 2;
+}
+
+message APIToken {
+  string id = 1;
+  string name = 2;
+  // scope is read or admin.
+  string scope = 3;
+  // last_four are the last four characters of the token, shown as efc_...last_four.
+  string last_four = 4;
+  string created_by_login = 5;
+  // created_at is RFC 3339. last_used_at, expires_at and revoked_at are
+  // RFC 3339 or empty when not set.
+  string created_at = 6;
+  string last_used_at = 7;
+  string expires_at = 8;
+  string revoked_at = 9;
+}
+
+message CreateAPITokenRequest {
+  string tenant_id = 1;
+  string name = 2;
+  // scope is read or admin.
+  string scope = 3;
+  // expires_at is RFC 3339. Not set means the token does not expire.
+  optional string expires_at = 4;
+}
+
+message CreateAPITokenResponse {
+  // token is shown once. The server only stores its hash.
+  string token = 1;
+  APIToken api_token = 2;
+}
+
+message ListAPITokensRequest {
+  string tenant_id = 1;
+}
+
+message ListAPITokensResponse {
+  repeated APIToken api_tokens = 1;
+}
+
+message RevokeAPITokenRequest {
+  string tenant_id = 1;
+  string id = 2;
+}
+
+message RevokeAPITokenResponse {}
