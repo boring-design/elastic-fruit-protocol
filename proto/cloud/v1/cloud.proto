@@ -529,7 +529,8 @@ message TenantQuota {
   // pool_minutes_used is the whole minutes runners of the tenant spent on the
   // pool since the 1st of this month at 00:00 UTC, read from live sessions.
   int32 pool_minutes_used = 8;
-  // max_pool_runners caps runners of the tenant on the pool at the same time.
+  // max_pool_runners caps runners of the tenant on the pool at the same time,
+  // it is raised while the tenant has purchased pool minutes left.
   int32 max_pool_runners = 9;
   // pool_runners_allocated is how many runners of the tenant are preparing,
   // idle or busy on the pool right now.
@@ -537,6 +538,10 @@ message TenantQuota {
   // max_repositories caps how many repositories the tenant may enable.
   int32 max_repositories = 11;
   int32 repositories_enabled = 12;
+  // pool_minutes_purchased_left is how many purchased pool minutes the tenant
+  // can still use. They are used after pool_minutes_monthly and do not reset
+  // with the month.
+  int64 pool_minutes_purchased_left = 13;
 }
 
 message ListMembersRequest {

@@ -3088,7 +3088,8 @@ type TenantQuota struct {
 	// pool_minutes_used is the whole minutes runners of the tenant spent on the
 	// pool since the 1st of this month at 00:00 UTC, read from live sessions.
 	PoolMinutesUsed int32 `protobuf:"varint,8,opt,name=pool_minutes_used,json=poolMinutesUsed,proto3" json:"pool_minutes_used,omitempty"`
-	// max_pool_runners caps runners of the tenant on the pool at the same time.
+	// max_pool_runners caps runners of the tenant on the pool at the same time,
+	// it is raised while the tenant has purchased pool minutes left.
 	MaxPoolRunners int32 `protobuf:"varint,9,opt,name=max_pool_runners,json=maxPoolRunners,proto3" json:"max_pool_runners,omitempty"`
 	// pool_runners_allocated is how many runners of the tenant are preparing,
 	// idle or busy on the pool right now.
@@ -3096,8 +3097,12 @@ type TenantQuota struct {
 	// max_repositories caps how many repositories the tenant may enable.
 	MaxRepositories     int32 `protobuf:"varint,11,opt,name=max_repositories,json=maxRepositories,proto3" json:"max_repositories,omitempty"`
 	RepositoriesEnabled int32 `protobuf:"varint,12,opt,name=repositories_enabled,json=repositoriesEnabled,proto3" json:"repositories_enabled,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// pool_minutes_purchased_left is how many purchased pool minutes the tenant
+	// can still use. They are used after pool_minutes_monthly and do not reset
+	// with the month.
+	PoolMinutesPurchasedLeft int64 `protobuf:"varint,13,opt,name=pool_minutes_purchased_left,json=poolMinutesPurchasedLeft,proto3" json:"pool_minutes_purchased_left,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *TenantQuota) Reset() {
@@ -3196,6 +3201,13 @@ func (x *TenantQuota) GetMaxRepositories() int32 {
 func (x *TenantQuota) GetRepositoriesEnabled() int32 {
 	if x != nil {
 		return x.RepositoriesEnabled
+	}
+	return 0
+}
+
+func (x *TenantQuota) GetPoolMinutesPurchasedLeft() int64 {
+	if x != nil {
+		return x.PoolMinutesPurchasedLeft
 	}
 	return 0
 }
@@ -5117,7 +5129,7 @@ const file_cloud_v1_cloud_proto_rawDesc = "" +
 	"\x14repositories_enabled\x18\n" +
 	" \x01(\x05R\x13repositoriesEnabled\x12'\n" +
 	"\x10jobs_last_7_days\x18\v \x01(\x05R\rjobsLast7Days\x12\x19\n" +
-	"\bhas_jobs\x18\f \x01(\bR\ahasJobsJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aJ\x04\b\a\x10\b\"\xd8\x03\n" +
+	"\bhas_jobs\x18\f \x01(\bR\ahasJobsJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aJ\x04\b\a\x10\b\"\x97\x04\n" +
 	"\vTenantQuota\x12\x1d\n" +
 	"\n" +
 	"max_agents\x18\x01 \x01(\x05R\tmaxAgents\x12\x1f\n" +
@@ -5131,7 +5143,8 @@ const file_cloud_v1_cloud_proto_rawDesc = "" +
 	"\x16pool_runners_allocated\x18\n" +
 	" \x01(\x05R\x14poolRunnersAllocated\x12)\n" +
 	"\x10max_repositories\x18\v \x01(\x05R\x0fmaxRepositories\x121\n" +
-	"\x14repositories_enabled\x18\f \x01(\x05R\x13repositoriesEnabledJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"1\n" +
+	"\x14repositories_enabled\x18\f \x01(\x05R\x13repositoriesEnabled\x12=\n" +
+	"\x1bpool_minutes_purchased_left\x18\r \x01(\x03R\x18poolMinutesPurchasedLeftJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"1\n" +
 	"\x12ListMembersRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"y\n" +
 	"\x13ListMembersResponse\x120\n" +
