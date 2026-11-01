@@ -1770,16 +1770,23 @@ type Repository struct {
 	InstallationId int64  `protobuf:"varint,5,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
 	// account_login is the GitHub account the App is installed on.
 	AccountLogin string `protobuf:"bytes,6,opt,name=account_login,json=accountLogin,proto3" json:"account_login,omitempty"`
-	// status is one of paused, problem, setting_up, pool_minutes_used_up or
-	// ready.
+	// status is the status of the Linux jobs (runs-on: elastic-fruit), one of
+	// paused, problem, setting_up, waiting_for_machine, pool_minutes_used_up
+	// or ready.
 	Status string `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
 	// problem explains the problem status in words a user can act on.
 	Problem string `protobuf:"bytes,9,opt,name=problem,proto3" json:"problem,omitempty"`
 	// last_job is unset when the repository never ran a job.
 	LastJob        *RepositoryJob `protobuf:"bytes,10,opt,name=last_job,json=lastJob,proto3" json:"last_job,omitempty"`
 	JobsLast_7Days int32          `protobuf:"varint,11,opt,name=jobs_last_7_days,json=jobsLast7Days,proto3" json:"jobs_last_7_days,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// macos_status is the status of the macOS jobs (runs-on:
+	// elastic-fruit-macos), which run only on the tenant's own Macs with
+	// Tart, never on the pool: paused, problem, setting_up,
+	// waiting_for_machine or ready. Empty when the server has no macOS
+	// runner set for the repository.
+	MacosStatus   string `protobuf:"bytes,12,opt,name=macos_status,json=macosStatus,proto3" json:"macos_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Repository) Reset() {
@@ -1880,6 +1887,13 @@ func (x *Repository) GetJobsLast_7Days() int32 {
 		return x.JobsLast_7Days
 	}
 	return 0
+}
+
+func (x *Repository) GetMacosStatus() string {
+	if x != nil {
+		return x.MacosStatus
+	}
+	return ""
 }
 
 type RepositoryJob struct {
@@ -5008,7 +5022,7 @@ const file_cloud_v1_cloud_proto_rawDesc = "" +
 	"\barchived\x18\x04 \x01(\bR\barchived\x12'\n" +
 	"\x0finstallation_id\x18\x05 \x01(\x03R\x0einstallationId\x12#\n" +
 	"\raccount_login\x18\x06 \x01(\tR\faccountLogin\x12\x18\n" +
-	"\aenabled\x18\a \x01(\bR\aenabled\"\xd2\x02\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\"\xf5\x02\n" +
 	"\n" +
 	"Repository\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
@@ -5021,7 +5035,8 @@ const file_cloud_v1_cloud_proto_rawDesc = "" +
 	"\aproblem\x18\t \x01(\tR\aproblem\x122\n" +
 	"\blast_job\x18\n" +
 	" \x01(\v2\x17.cloud.v1.RepositoryJobR\alastJob\x12'\n" +
-	"\x10jobs_last_7_days\x18\v \x01(\x05R\rjobsLast7DaysJ\x04\b\a\x10\b\"w\n" +
+	"\x10jobs_last_7_days\x18\v \x01(\x05R\rjobsLast7Days\x12!\n" +
+	"\fmacos_status\x18\f \x01(\tR\vmacosStatusJ\x04\b\a\x10\b\"w\n" +
 	"\rRepositoryJob\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06result\x18\x02 \x01(\tR\x06result\x12\x1d\n" +

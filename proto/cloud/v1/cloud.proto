@@ -334,14 +334,21 @@ message Repository {
   int64 installation_id = 5;
   // account_login is the GitHub account the App is installed on.
   string account_login = 6;
-  // status is one of paused, problem, setting_up, pool_minutes_used_up or
-  // ready.
+  // status is the status of the Linux jobs (runs-on: elastic-fruit), one of
+  // paused, problem, setting_up, waiting_for_machine, pool_minutes_used_up
+  // or ready.
   string status = 8;
   // problem explains the problem status in words a user can act on.
   string problem = 9;
   // last_job is unset when the repository never ran a job.
   RepositoryJob last_job = 10;
   int32 jobs_last_7_days = 11;
+  // macos_status is the status of the macOS jobs (runs-on:
+  // elastic-fruit-macos), which run only on the tenant's own Macs with
+  // Tart, never on the pool: paused, problem, setting_up,
+  // waiting_for_machine or ready. Empty when the server has no macOS
+  // runner set for the repository.
+  string macos_status = 12;
 }
 
 message RepositoryJob {
